@@ -1,0 +1,38 @@
+logs:
+  - type: file
+    path: /var/cache/dmarc-reports/*.xml
+    service: dmarc
+    source: dmarc
+    log_processing_rules:
+      - type: multi_line
+        name: dmarc_start_record
+        pattern: "<record>"
+      - type: multi_line
+        name: dmarc_end_record
+        pattern: "</record>"
+      - type: exclude_at_match
+        name: exclude_non_xml_logs
+        pattern: '<\?xml version=\"1.0\"\?>'
+    processors:
+      - xml:
+          log_match: true
+          xpath:
+            "/record/row/source_ip": "$.email.source_ip"
+            "/record/row/count": "$.email.count"
+            "/record/identifiers/header_from": "$.email.header_from"
+            "/record/row/policy_evaluated/disposition": "$.email.dmarc_action"
+            "/record/row/policy_evaluated/dkim": "$.email.dkim_evaluation"
+            "/record/row/policy_evaluated/spf": "$.email.spf_evaluation"
+            "/record/auth_results/dkim/domain": "$.authresult.dkim_domain"
+            "/record/auth_results/dkim/result": "$.authresult.dkim_result"
+            "/record/auth_results/spf/domain": "$.authresult.spf_domain"
+            "/record/auth_results/spf/result": "$.authresult.spf_result"
+            "feedback/policy_published/pct": "$.policy.percentage"
+      - geoip:
+          sources:
+            - email.source_ip
+          target: geoip
+      - date:
+          sources:
+            - timestamp
+          target: "@timestamp"
